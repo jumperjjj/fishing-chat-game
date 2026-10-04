@@ -26,7 +26,7 @@ jobs:
         run: npm run check
 
       - name: Build installer
-        run: npm run dist
+        run: npm run dist -- --publish never
 
       - name: Upload installer artifact
         uses: actions/upload-artifact@v4
