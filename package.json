@@ -1,0 +1,39 @@
+{
+  "name": "twitch-fishing-game",
+  "version": "0.1.0",
+  "description": "Jogo de pescaria interativo para Twitch com overlay local para OBS.",
+  "main": "src/main.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron .",
+    "check": "node --check src/main.js && node --check src/database.js && node --check src/fishing-engine.js && node --check src/local-server.js && node --check src/twitch-client.js",
+    "dist": "electron-builder --win nsis"
+  },
+  "dependencies": {
+    "express": "^5.1.0",
+    "ws": "^8.18.3"
+  },
+  "devDependencies": {
+    "electron": "^38.0.0",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "com.fishingchat.game",
+    "productName": "Fishing Chat Game",
+    "asar": true,
+    "files": [
+      "src/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": ["nsis"]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
+  }
+}

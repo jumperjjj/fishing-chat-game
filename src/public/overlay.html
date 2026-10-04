@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Fishing Overlay</title>
+<style>
+  * { box-sizing:border-box; }
+  html,body { width:100%; height:100%; margin:0; overflow:hidden; background:transparent; font-family:Inter,Arial,sans-serif; }
+  .stage { width:100%; height:100%; display:flex; align-items:flex-end; justify-content:center; padding-bottom:110px; pointer-events:none; }
+  .card { min-width:520px; max-width:780px; padding:24px 34px; border-radius:18px; background:rgba(6,18,28,.88); border:1px solid rgba(121,226,207,.34); box-shadow:0 22px 60px rgba(0,0,0,.38); color:white; text-align:center; opacity:0; transform:translateY(28px) scale(.97); transition:.35s ease; }
+  .card.show { opacity:1; transform:translateY(0) scale(1); }
+  .name { font-size:27px; font-weight:800; }
+  .fishing { font-size:18px; color:#8be6d1; margin-top:8px; letter-spacing:.08em; }
+  .hook { font-size:54px; animation:bob 1s ease-in-out infinite; margin:14px 0; }
+  .item { font-size:34px; font-weight:900; margin:8px 0 2px; }
+  .rarity { font-size:16px; font-weight:800; letter-spacing:.12em; text-transform:uppercase; color:#ffd45f; }
+  .gold { font-size:22px; color:#ffd45f; margin-top:10px; }
+  @keyframes bob { 50% { transform:translateY(8px) rotate(5deg); } }
+</style>
+</head>
+<body>
+<div class="stage"><div id="card" class="card"><div id="content"></div></div></div>
+<script>
+const card = document.getElementById('card');
+const content = document.getElementById('content');
+let hideTimer;
+function show(html, ms=4000) {
+  clearTimeout(hideTimer); content.innerHTML = html; card.classList.add('show');
+  if (ms) hideTimer = setTimeout(() => card.classList.remove('show'), ms);
+}
+const ws = new WebSocket(`ws://${location.host}/ws`);
+ws.addEventListener('message', (event) => {
+  const data = JSON.parse(event.data);
+  if (data.type === 'fishing:start') show(`<div class="name">${esc(data.user.displayName)}</div><div class="fishing">PESCANDO...</div><div class="hook">🎣</div>`, Math.max(1000, data.durationMs));
+  if (data.type === 'fishing:result') show(`<div class="name">${esc(data.user.displayName)}</div><div class="item">${esc(data.item.name)}</div><div class="rarity">${esc(data.item.rarity)}</div><div class="gold">+${Number(data.item.gold).toLocaleString('pt-BR')} OURO</div>`, 6000);
+});
+function esc(v){return String(v??'').replace(/[&<>\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[c]));}
+</script>
+</body>
+</html>
