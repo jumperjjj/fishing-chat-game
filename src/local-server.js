@@ -33,7 +33,7 @@ class LocalServer {
       const settings = this.db.getSettings();
       res.json({
         ok: true,
-        version: '0.1.0',
+        version: '0.1.1',
         overlayUrl: `http://127.0.0.1:${this.port}/overlay.html`,
         settings
       });
@@ -59,7 +59,7 @@ class LocalServer {
     });
 
     this.app.post('/api/settings', (req, res) => {
-      const allowed = ['command', 'cooldown_seconds', 'fishing_seconds', 'overlay_enabled', 'twitch_client_id'];
+      const allowed = ['command', 'cooldown_seconds', 'fishing_seconds', 'overlay_enabled', 'twitch_client_id', 'target_channel_login'];
       for (const key of allowed) {
         if (Object.prototype.hasOwnProperty.call(req.body || {}, key)) this.db.setSetting(key, req.body[key]);
       }

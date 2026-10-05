@@ -6,6 +6,7 @@ const VALIDATE_URL = 'https://id.twitch.tv/oauth2/validate';
 const HELIX_USERS = 'https://api.twitch.tv/helix/users';
 const EVENTSUB_URL = 'https://api.twitch.tv/helix/eventsub/subscriptions';
 const EVENTSUB_WS = 'wss://eventsub.wss.twitch.tv/ws';
+const SCOPES = 'user:bot user:read:chat user:write:chat';
 
 class TwitchClient extends EventEmitter {
   constructor(database) {
@@ -13,16 +14,16 @@ class TwitchClient extends EventEmitter {
     this.db = database;
     this.ws = null;
     this.token = null;
-    this.identity = null;
+    this.botIdentity = null;
+    this.channelIdentity = null;
     this.sessionId = null;
   }
 
   async startDeviceAuth(clientId) {
-    const scopes = 'user:read:chat user:write:chat';
     const response = await fetch(DEVICE_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({ client_id: clientId, scopes })
+      body: new URLSearchParams({ client_id: clientId, scopes: SCOPES })
     });
     if (!response.ok) throw new Error(`Falha ao iniciar login Twitch (${response.status})`);
     return response.json();
@@ -37,7 +38,7 @@ class TwitchClient extends EventEmitter {
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams({
           client_id: clientId,
-          scopes: 'user:read:chat user:write:chat',
+          scopes: SCOPES,
           device_code: deviceCode,
           grant_type: 'urn:ietf:params:oauth:grant-type:device_code'
         })
@@ -59,7 +60,7 @@ class TwitchClient extends EventEmitter {
     return response.json();
   }
 
-  async loadIdentity(clientId, accessToken) {
+  async loadOwnIdentity(clientId, accessToken) {
     const response = await fetch(HELIX_USERS, {
       headers: {
         'Client-Id': clientId,
@@ -72,17 +73,37 @@ class TwitchClient extends EventEmitter {
     return data.data[0];
   }
 
-  async connect({ clientId, accessToken }) {
+  async loadUserByLogin(clientId, accessToken, login) {
+    const cleanLogin = String(login || '').trim().replace(/^@/, '').toLowerCase();
+    if (!cleanLogin) throw new Error('Informe o canal da live.');
+    const response = await fetch(`${HELIX_USERS}?login=${encodeURIComponent(cleanLogin)}`, {
+      headers: {
+        'Client-Id': clientId,
+        Authorization: `Bearer ${accessToken}`
+      }
+    });
+    if (!response.ok) throw new Error(`Não foi possível localizar o canal (${response.status})`);
+    const data = await response.json();
+    if (!data.data?.[0]) throw new Error(`Canal Twitch não encontrado: ${cleanLogin}`);
+    return data.data[0];
+  }
+
+  async connect({ clientId, accessToken, targetChannelLogin }) {
     this.token = accessToken;
     await this.validateToken(accessToken);
-    this.identity = await this.loadIdentity(clientId, accessToken);
+    this.botIdentity = await this.loadOwnIdentity(clientId, accessToken);
+    this.channelIdentity = await this.loadUserByLogin(clientId, accessToken, targetChannelLogin);
 
-    this.db.setSetting('active_channel_id', this.identity.id);
-    this.db.setSetting('active_channel_login', this.identity.login);
-    this.db.setSetting('active_channel_name', this.identity.display_name);
+    this.db.setSetting('bot_user_id', this.botIdentity.id);
+    this.db.setSetting('bot_user_login', this.botIdentity.login);
+    this.db.setSetting('bot_user_name', this.botIdentity.display_name);
+    this.db.setSetting('target_channel_login', this.channelIdentity.login);
+    this.db.setSetting('active_channel_id', this.channelIdentity.id);
+    this.db.setSetting('active_channel_login', this.channelIdentity.login);
+    this.db.setSetting('active_channel_name', this.channelIdentity.display_name);
 
     this.openEventSubSocket(clientId);
-    return this.identity;
+    return { bot: this.botIdentity, channel: this.channelIdentity };
   }
 
   openEventSubSocket(clientId, url = EVENTSUB_WS) {
@@ -100,7 +121,7 @@ class TwitchClient extends EventEmitter {
         if (type === 'session_welcome') {
           this.sessionId = data.payload.session.id;
           await this.subscribeToChat(clientId);
-          this.emit('connected', this.identity);
+          this.emit('connected', { bot: this.botIdentity, channel: this.channelIdentity });
         }
 
         if (type === 'notification' && data.metadata?.subscription_type === 'channel.chat.message') {
@@ -135,8 +156,8 @@ class TwitchClient extends EventEmitter {
       type: 'channel.chat.message',
       version: '1',
       condition: {
-        broadcaster_user_id: this.identity.id,
-        user_id: this.identity.id
+        broadcaster_user_id: this.channelIdentity.id,
+        user_id: this.botIdentity.id
       },
       transport: {
         method: 'websocket',
@@ -164,7 +185,8 @@ class TwitchClient extends EventEmitter {
     if (this.ws) this.ws.close();
     this.ws = null;
     this.sessionId = null;
-    this.identity = null;
+    this.botIdentity = null;
+    this.channelIdentity = null;
   }
 }
 

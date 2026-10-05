@@ -14,7 +14,7 @@
       <button class="nav" data-page="items">Peixes e itens</button>
       <button class="nav" data-page="ranking">Ranking</button>
       <button class="nav" data-page="overlay">Overlay / OBS</button>
-      <div class="version">v0.1.0 • local</div>
+      <div class="version">v0.1.1 • local</div>
     </aside>
 
     <main>
@@ -27,7 +27,10 @@
             <h2>Twitch</h2>
             <div id="twitchStatus" class="status offline">● Não conectado</div>
             <label>Client ID da aplicação Twitch</label>
-            <input id="clientId" placeholder="Será preenchido após registrar o app na Twitch" />
+            <input id="clientId" placeholder="Cole o Client ID da Twitch" />
+            <label>Canal da live</label>
+            <input id="targetChannel" placeholder="ex.: seu_canal" />
+            <p class="muted">A autorização deve ser feita logado na conta do bot. O bot ouvirá o canal informado acima.</p>
             <div class="row">
               <button id="connectTwitch" class="primary">Conectar Twitch</button>
             </div>

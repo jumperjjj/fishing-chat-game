@@ -1,4 +1,4 @@
-# Fishing Chat Game — v0.1.0
+# Fishing Chat Game — v0.1.1
 
 Base inicial de um jogo de pescaria interativo para Twitch.
 
@@ -42,3 +42,9 @@ O banco é criado automaticamente no diretório `userData` do Electron, fora da 
 5. Coleção, conquistas e painel de estatísticas.
 6. Fila visual do overlay e estilos/animações.
 7. GitHub Actions + electron-builder para gerar instalador `.exe`.
+
+
+## v0.1.1
+- Separa a conta do bot do canal da live.
+- Device Code pede user:bot, user:read:chat e user:write:chat.
+- Informe o login do canal da live antes de conectar.

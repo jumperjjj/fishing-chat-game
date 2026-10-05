@@ -72,9 +72,9 @@ ipcMain.handle('copy-overlay-url', async () => {
   return url;
 });
 ipcMain.handle('twitch-complete-device-auth', async (_event, payload) => {
-  const { clientId, deviceCode, interval, expiresIn } = payload;
+  const { clientId, deviceCode, interval, expiresIn, targetChannelLogin } = payload;
   const token = await twitch.pollDeviceToken(clientId, deviceCode, interval, expiresIn);
-  const identity = await twitch.connect({ clientId, accessToken: token.access_token });
+  const identity = await twitch.connect({ clientId, accessToken: token.access_token, targetChannelLogin });
   // TODO v0.2: armazenar refresh token com proteção do SO (safeStorage).
   return { identity, tokenExpiresIn: token.expires_in };
 });

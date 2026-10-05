@@ -19,6 +19,7 @@ async function loadStatus() {
   $('#cooldown').value = settings.cooldown_seconds || '120';
   $('#fishingSeconds').value = settings.fishing_seconds || '4';
   $('#clientId').value = settings.twitch_client_id || '';
+  $('#targetChannel').value = settings.target_channel_login || '';
   $('#overlayUrl').textContent = data.overlayUrl;
 }
 
@@ -57,7 +58,8 @@ $('#saveSettings').addEventListener('click', async () => {
     command: $('#command').value.trim() || '!pescar',
     cooldown_seconds: $('#cooldown').value,
     fishing_seconds: $('#fishingSeconds').value,
-    twitch_client_id: $('#clientId').value.trim()
+    twitch_client_id: $('#clientId').value.trim(),
+    target_channel_login: $('#targetChannel').value.trim()
   })});
   $('#eventLog').textContent = 'Configurações salvas.';
 });
@@ -92,6 +94,8 @@ $('#openOverlay').addEventListener('click', () => window.desktop.openExternal($(
 $('#connectTwitch').addEventListener('click', async () => {
   try {
     const clientId = $('#clientId').value.trim();
+    const targetChannelLogin = $('#targetChannel').value.trim();
+    if (!targetChannelLogin) throw new Error('Informe o canal da live.');
     const device = await api('/api/twitch/device', { method: 'POST', body: JSON.stringify({ clientId }) });
     $('#deviceBox').classList.remove('hidden');
     $('#deviceCode').textContent = device.user_code;
@@ -99,11 +103,11 @@ $('#connectTwitch').addEventListener('click', async () => {
     $('#deviceProgress').textContent = 'Aguardando autorização…';
     window.desktop.openExternal(device.verification_uri);
     const result = await window.desktop.completeTwitchDeviceAuth({
-      clientId, deviceCode: device.device_code, interval: device.interval, expiresIn: device.expires_in
+      clientId, deviceCode: device.device_code, interval: device.interval, expiresIn: device.expires_in, targetChannelLogin
     });
     $('#deviceProgress').textContent = 'Autorizado!';
     $('#twitchStatus').className = 'status online';
-    $('#twitchStatus').textContent = `● Conectado: ${result.identity.display_name}`;
+    $('#twitchStatus').textContent = `● Bot ${result.identity.bot.display_name} → ${result.identity.channel.display_name}`;
   } catch (e) {
     $('#deviceProgress').textContent = e.message;
     $('#eventLog').textContent = e.message;
@@ -121,7 +125,7 @@ ws.addEventListener('message', (event) => {
   if (data.type === 'fishing:cooldown') $('#eventLog').textContent = `${data.user.displayName}: aguarde ${data.remainingSeconds}s.`;
   if (data.type === 'twitch:connected') {
     $('#twitchStatus').className = 'status online';
-    $('#twitchStatus').textContent = `● Conectado: ${data.identity.display_name}`;
+    $('#twitchStatus').textContent = `● Bot ${data.identity.bot.display_name} → ${data.identity.channel.display_name}`;
   }
 });
 

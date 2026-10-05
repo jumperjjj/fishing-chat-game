@@ -103,6 +103,10 @@ class GameDatabase {
       fishing_seconds: '4',
       overlay_enabled: '1',
       twitch_client_id: '',
+      target_channel_login: '',
+      bot_user_id: '',
+      bot_user_login: '',
+      bot_user_name: '',
       active_channel_id: 'local-test',
       active_channel_login: 'modo_teste',
       active_channel_name: 'Modo Teste'
