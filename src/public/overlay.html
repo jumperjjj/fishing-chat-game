@@ -7,36 +7,93 @@
 <style>
   * { box-sizing:border-box; }
   html,body { width:100%; height:100%; margin:0; overflow:hidden; background:transparent; font-family:Inter,Arial,sans-serif; }
-  .stage { width:100%; height:100%; display:flex; align-items:flex-end; justify-content:center; padding-bottom:72px; pointer-events:none; }
-  .card { width:auto; min-width:340px; max-width:500px; padding:15px 22px; border-radius:14px; background:rgba(6,18,28,.90); border:1px solid rgba(121,226,207,.34); box-shadow:0 16px 42px rgba(0,0,0,.34); color:white; text-align:center; opacity:0; transform:translateY(20px) scale(.98); transition:.28s ease; }
-  .card.show { opacity:1; transform:translateY(0) scale(1); }
-  .name { font-size:19px; font-weight:800; }
-  .fishing { font-size:13px; color:#8be6d1; margin-top:5px; letter-spacing:.09em; }
-  .hook { font-size:35px; animation:bob .9s ease-in-out infinite; margin:8px 0 2px; }
-  .item { font-size:24px; font-weight:900; line-height:1.08; margin:6px 0 3px; }
-  .rarity { font-size:12px; font-weight:800; letter-spacing:.12em; text-transform:uppercase; color:#ffd45f; }
-  .gold { font-size:16px; font-weight:800; color:#ffd45f; margin-top:6px; }
-  @keyframes bob { 50% { transform:translateY(6px) rotate(5deg); } }
+  .stage { position:relative; width:100%; height:100%; pointer-events:none; }
+  .anchor { position:absolute; left:50%; top:86%; transform:translate(-50%,-50%) scale(1); transform-origin:center; }
+  .card { min-width:250px; max-width:440px; padding:11px 16px; border-radius:16px; background:rgba(7,19,29,.9); border:1px solid rgba(112,224,197,.45); box-shadow:0 14px 38px rgba(0,0,0,.36); color:#fff; opacity:0; display:flex; align-items:center; gap:12px; }
+  .card.show[data-animation="pop"] { animation:popIn .34s cubic-bezier(.2,.9,.2,1) forwards; }
+  .card.show[data-animation="slide"] { animation:slideIn .38s cubic-bezier(.2,.8,.2,1) forwards; }
+  .card.show[data-animation="bounce"] { animation:bounceIn .5s cubic-bezier(.2,.85,.25,1.2) forwards; }
+  .card.hide { animation:fadeOut .22s ease forwards !important; }
+  #content { display:flex; align-items:center; gap:12px; width:100%; }
+  .copy { min-width:0; }
+  .name { font-size:13px; font-weight:800; opacity:.78; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .fishing { font-size:12px; font-weight:850; color:#70e0c5; letter-spacing:.09em; margin-top:4px; }
+  .hook { width:66px; height:66px; display:grid; place-items:center; flex:0 0 auto; font-size:38px; animation:bob .85s ease-in-out infinite; }
+  .item-image { width:72px; height:72px; object-fit:contain; flex:0 0 auto; filter:drop-shadow(0 6px 10px rgba(0,0,0,.35)); animation:itemRise .45s cubic-bezier(.2,.9,.3,1.15); }
+  .item { font-size:21px; font-weight:950; line-height:1.05; margin-top:2px; overflow-wrap:anywhere; }
+  .rarity { font-size:10px; font-weight:900; letter-spacing:.12em; text-transform:uppercase; color:#70e0c5; margin-top:5px; }
+  .gold { font-size:14px; font-weight:900; color:#ffd45f; margin-top:4px; }
+  @keyframes bob { 50% { transform:translateY(6px) rotate(7deg); } }
+  @keyframes itemRise { from { transform:translateY(10px) scale(.78); opacity:0; } to { transform:translateY(0) scale(1); opacity:1; } }
+  @keyframes popIn { from { opacity:0; transform:scale(.84); } to { opacity:1; transform:scale(1); } }
+  @keyframes slideIn { from { opacity:0; transform:translateY(22px); } to { opacity:1; transform:translateY(0); } }
+  @keyframes bounceIn { 0% { opacity:0; transform:scale(.72); } 70% { opacity:1; transform:scale(1.07); } 100% { opacity:1; transform:scale(1); } }
+  @keyframes fadeOut { from { opacity:1; } to { opacity:0; transform:translateY(8px); } }
 </style>
 </head>
 <body>
-<div class="stage"><div id="card" class="card"><div id="content"></div></div></div>
+<div class="stage"><div id="anchor" class="anchor"><div id="card" class="card" data-animation="pop"><div id="content"></div></div></div></div>
 <script>
+const anchor = document.getElementById('anchor');
 const card = document.getElementById('card');
 const content = document.getElementById('content');
 let hideTimer;
 let soundEnabled = true;
+let overlayEnabled = true;
+let showImage = true;
+let imageSize = 72;
 let audioContext;
+let currentSettings = {};
 
-fetch('/api/status').then(r => r.json()).then(data => {
-  soundEnabled = data?.settings?.overlay_sound_enabled !== '0';
-}).catch(() => {});
+function hexToRgba(hex, alpha) {
+  const value = String(hex || '#000000').replace('#','');
+  const normalized = value.length === 3 ? value.split('').map(c => c+c).join('') : value.padEnd(6,'0').slice(0,6);
+  const num = parseInt(normalized,16);
+  return `rgba(${(num>>16)&255},${(num>>8)&255},${num&255},${alpha})`;
+}
+
+function applySettings(settings = {}) {
+  currentSettings = settings;
+  soundEnabled = settings.overlay_sound_enabled !== '0';
+  overlayEnabled = settings.overlay_enabled !== '0';
+  showImage = settings.overlay_show_image !== '0';
+  imageSize = Number(settings.overlay_image_size || 72);
+  const x = Number(settings.overlay_x || 50);
+  const y = Number(settings.overlay_y || 86);
+  const scale = Number(settings.overlay_scale || 100) / 100;
+  const opacity = Number(settings.overlay_opacity || 90) / 100;
+  const bg = settings.overlay_bg_color || '#07131d';
+  const text = settings.overlay_text_color || '#ffffff';
+  const accent = settings.overlay_accent_color || '#70e0c5';
+  const gold = settings.overlay_gold_color || '#ffd45f';
+  const radius = Number(settings.overlay_radius || 16);
+  anchor.style.left = `${x}%`;
+  anchor.style.top = `${y}%`;
+  anchor.style.transform = `translate(-50%,-50%) scale(${scale})`;
+  card.style.background = hexToRgba(bg, opacity);
+  card.style.color = text;
+  card.style.borderColor = hexToRgba(accent, .48);
+  card.style.borderRadius = `${radius}px`;
+  card.dataset.animation = settings.overlay_animation || 'pop';
+  card.style.display = overlayEnabled ? 'flex' : 'none';
+  document.documentElement.style.setProperty('--accent', accent);
+  document.documentElement.style.setProperty('--gold', gold);
+}
+
+fetch('/api/status').then(r => r.json()).then(data => applySettings(data?.settings || {})).catch(() => {});
 
 function show(html, ms=4000) {
+  if (!overlayEnabled) return;
   clearTimeout(hideTimer);
+  content.outerHTML; // força reflow indireto antes de animar
   content.innerHTML = html;
+  card.classList.remove('show','hide');
+  void card.offsetWidth;
   card.classList.add('show');
-  if (ms) hideTimer = setTimeout(() => card.classList.remove('show'), ms);
+  if (ms) hideTimer = setTimeout(() => {
+    card.classList.remove('show');
+    card.classList.add('hide');
+  }, ms);
 }
 
 function ctx() {
@@ -49,54 +106,45 @@ function ctx() {
 }
 
 function playCastSound() {
-  const c = ctx();
-  if (!c) return;
+  const c = ctx(); if (!c) return;
   const now = c.currentTime;
-  const osc = c.createOscillator();
-  const gain = c.createGain();
-  osc.type = 'sine';
-  osc.frequency.setValueAtTime(720, now);
-  osc.frequency.exponentialRampToValueAtTime(180, now + .18);
-  gain.gain.setValueAtTime(.0001, now);
-  gain.gain.exponentialRampToValueAtTime(.16, now + .015);
-  gain.gain.exponentialRampToValueAtTime(.0001, now + .22);
-  osc.connect(gain).connect(c.destination);
-  osc.start(now); osc.stop(now + .24);
+  const osc = c.createOscillator(); const gain = c.createGain();
+  osc.type = 'sine'; osc.frequency.setValueAtTime(760, now); osc.frequency.exponentialRampToValueAtTime(160, now + .2);
+  gain.gain.setValueAtTime(.0001, now); gain.gain.exponentialRampToValueAtTime(.14, now + .014); gain.gain.exponentialRampToValueAtTime(.0001, now + .23);
+  osc.connect(gain).connect(c.destination); osc.start(now); osc.stop(now + .24);
 }
 
 function playCatchSound(rarity) {
-  const c = ctx();
-  if (!c) return;
-  const now = c.currentTime;
-  const rare = ['Épico','Lendário','Mítico'].includes(rarity);
-  const notes = rare ? [440, 660, 880] : [330, 520];
-  notes.forEach((freq, index) => {
-    const osc = c.createOscillator();
-    const gain = c.createGain();
-    const start = now + index * .075;
-    osc.type = rare ? 'triangle' : 'sine';
-    osc.frequency.setValueAtTime(freq, start);
-    gain.gain.setValueAtTime(.0001, start);
-    gain.gain.exponentialRampToValueAtTime(.13, start + .015);
-    gain.gain.exponentialRampToValueAtTime(.0001, start + .22);
-    osc.connect(gain).connect(c.destination);
-    osc.start(start); osc.stop(start + .24);
+  const c = ctx(); if (!c) return;
+  const now = c.currentTime; const rare = ['Épico','Lendário','Mítico'].includes(rarity);
+  const notes = rare ? [440,660,880] : [330,520];
+  notes.forEach((freq,index) => {
+    const osc = c.createOscillator(); const gain = c.createGain(); const start = now + index * .075;
+    osc.type = rare ? 'triangle' : 'sine'; osc.frequency.setValueAtTime(freq,start);
+    gain.gain.setValueAtTime(.0001,start); gain.gain.exponentialRampToValueAtTime(.13,start+.015); gain.gain.exponentialRampToValueAtTime(.0001,start+.22);
+    osc.connect(gain).connect(c.destination); osc.start(start); osc.stop(start+.24);
   });
 }
 
 const ws = new WebSocket(`ws://${location.host}/ws`);
 ws.addEventListener('message', (event) => {
   const data = JSON.parse(event.data);
+  if (data.type === 'settings:updated') applySettings(data.settings || {});
   if (data.type === 'fishing:start') {
     playCastSound();
-    show(`<div class="name">${esc(data.user.displayName)}</div><div class="fishing">PESCANDO...</div><div class="hook">🎣</div>`, Math.max(1000, data.durationMs));
+    show(`<div class="hook">🎣</div><div class="copy"><div class="name">${esc(data.user.displayName)}</div><div class="fishing" style="color:${escAttr(currentSettings.overlay_accent_color || '#70e0c5')}">PESCANDO...</div></div>`, Math.max(1000, data.durationMs));
   }
   if (data.type === 'fishing:result') {
     playCatchSound(data.item.rarity);
-    show(`<div class="name">${esc(data.user.displayName)}</div><div class="item">${esc(data.item.name)}</div><div class="rarity">${esc(data.item.rarity)}</div><div class="gold">+${Number(data.item.goldAwarded).toLocaleString('pt-BR')} OURO</div>`, 5200);
+    const image = showImage && data.item.image_path ? `<img class="item-image" style="width:${imageSize}px;height:${imageSize}px" src="${escAttr(data.item.image_path)}" alt="" />` : '';
+    const accent = escAttr(currentSettings.overlay_accent_color || '#70e0c5');
+    const gold = escAttr(currentSettings.overlay_gold_color || '#ffd45f');
+    show(`${image}<div class="copy"><div class="name">${esc(data.user.displayName)}</div><div class="item">${esc(data.item.name)}</div><div class="rarity" style="color:${accent}">${esc(data.item.rarity)}</div><div class="gold" style="color:${gold}">+${Number(data.item.goldAwarded).toLocaleString('pt-BR')} OURO</div></div>`, 5200);
   }
 });
+
 function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function escAttr(v){return esc(v).replace(/`/g,'&#96;');}
 </script>
 </body>
 </html>

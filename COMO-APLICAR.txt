@@ -1,13 +1,30 @@
-PATCH v0.2.0 — Fishing Chat Game
+FISHING CHAT GAME — PATCH v0.3.0
 
-1. Abra seu repositório no GitHub.
-2. Substitua os arquivos deste ZIP mantendo exatamente as mesmas pastas.
-3. Não precisa alterar .github/workflows/build-windows.yml.
-4. Faça Commit changes.
-5. Vá em Actions > Build Windows > Run workflow.
-6. Baixe o Artifact Fishing-Chat-Game-Windows e instale o novo .exe.
+Este ZIP contém SOMENTE os arquivos alterados.
 
-IMPORTANTE:
-- O banco antigo é migrado automaticamente; não apague o fishing-game.db.
-- O catálogo padrão antigo (com pesos) é convertido para percentuais simples.
-- Para pescar, a soma das chances dos itens ativos do catálogo precisa ser 100%.
+1. Abra o seu repositório no GitHub.
+2. Substitua os arquivos mantendo exatamente os mesmos caminhos:
+
+package.json
+README.md
+src/main.js
+src/database.js
+src/local-server.js
+src/twitch-client.js
+src/public/index.html
+src/public/app.js
+src/public/style.css
+src/public/overlay.html
+
+3. Faça Commit changes.
+4. Vá em Actions > Build Windows > Run workflow.
+5. O workflow atual NÃO precisa ser alterado.
+6. Baixe o Artifact gerado e instale o novo .exe.
+
+IMPORTANTE SOBRE O BOT:
+- Client ID = identidade do APLICATIVO, não da conta que fala.
+- Ao clicar em "Conectar conta do bot", autorize a conta FishingBotJJJ no navegador.
+- A v0.3.0 bloqueia a conexão se outra conta for autorizada, enquanto "Conta do bot esperada" estiver como fishingbotjjj.
+- Não gere/compartilhe Client Secret.
+
+O banco antigo é migrado automaticamente e fica fora da pasta de instalação.

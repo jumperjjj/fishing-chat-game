@@ -1,7 +1,7 @@
 {
   "name": "twitch-fishing-game",
-  "version": "0.2.0",
-  "description": "Jogo de pescaria interativo para Twitch com catálogo editável, Ouro variável e overlay local para OBS.",
+  "version": "0.3.0",
+  "description": "Jogo de pescaria interativo para Twitch com bot dedicado, catálogo com imagens, coleção, conquistas, ranking editável e overlay local para OBS.",
   "main": "src/main.js",
   "type": "commonjs",
   "scripts": {

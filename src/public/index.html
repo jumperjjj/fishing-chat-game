@@ -9,58 +9,64 @@
 <body>
   <div class="app">
     <aside>
-      <div class="brand">🎣 <span>Fishing Chat Game</span></div>
+      <div class="brand"><span class="brand-icon">🎣</span><span>Fishing Chat Game</span></div>
       <button class="nav active" data-page="dashboard">Visão geral</button>
       <button class="nav" data-page="items">Peixes e itens</button>
+      <button class="nav" data-page="collection">Coleção</button>
       <button class="nav" data-page="ranking">Ranking</button>
+      <button class="nav" data-page="achievements">Conquistas</button>
+      <button class="nav" data-page="commands">Comandos</button>
       <button class="nav" data-page="overlay">Overlay / OBS</button>
-      <div class="version">v0.2.0 • local</div>
+      <button class="nav" data-page="settings">Configurações</button>
+      <div class="version">v0.3.0 • local</div>
     </aside>
 
     <main>
       <section class="page active" id="page-dashboard">
-        <h1>Visão geral</h1>
-        <p class="muted">Twitch + jogo + SQLite local + overlay OBS.</p>
+        <div class="title-row">
+          <div><h1>Visão geral</h1><p class="muted">Jogo local, banco separado por canal e overlay para OBS.</p></div>
+          <button id="testFish" class="primary">🎣 Testar pescaria</button>
+        </div>
 
-        <div class="grid two">
+        <div class="summary-grid">
+          <div class="summary-card"><span>Jogadores</span><strong id="summaryPlayers">0</strong></div>
+          <div class="summary-card"><span>Pescarias</span><strong id="summaryCatches">0</strong></div>
+          <div class="summary-card"><span>Itens</span><strong id="summaryItems">0</strong></div>
+        </div>
+
+        <div class="grid two dashboard-grid">
           <div class="card">
-            <h2>Twitch</h2>
-            <div id="twitchStatus" class="status offline">● Não conectado</div>
-            <label>Client ID da aplicação Twitch</label>
-            <input id="clientId" placeholder="Cole o Client ID da Twitch" />
-            <label>Canal da live</label>
-            <input id="targetChannel" placeholder="ex.: jumperjjj" />
-            <p class="muted">Autorize usando a conta FishingBotJJJ. O bot ouvirá o canal informado acima.</p>
+            <div class="card-head"><h2>Twitch</h2><div id="twitchStatus" class="status offline">● Não conectado</div></div>
+            <div class="notice info">
+              O <b>Client ID identifica o aplicativo</b>. Quem fala no chat é a conta que autoriza o login abaixo.
+            </div>
+            <label>Client ID da aplicação</label>
+            <input id="clientId" placeholder="Client ID da Twitch" />
+            <div class="grid two compact">
+              <div><label>Canal da live</label><input id="targetChannel" placeholder="ex.: jumperjjj" /></div>
+              <div><label>Conta do bot esperada</label><input id="expectedBotLogin" placeholder="fishingbotjjj" /></div>
+            </div>
+            <p class="muted tiny">Ao autorizar, confira se o navegador está logado em <b>FishingBotJJJ</b>. Se autorizar sua conta principal, será ela quem enviará as mensagens.</p>
             <div class="row">
-              <button id="connectTwitch" class="primary">Conectar Twitch</button>
+              <button id="connectTwitch" class="primary">Conectar conta do bot</button>
             </div>
             <div id="deviceBox" class="device hidden">
-              <div>Abra a Twitch e confirme este código:</div>
+              <div>Confirme este código na Twitch:</div>
               <strong id="deviceCode"></strong>
-              <button id="openTwitchAuth">Abrir página de autorização</button>
+              <button id="openTwitchAuth">Abrir autorização</button>
               <div id="deviceProgress" class="muted">Aguardando autorização…</div>
             </div>
           </div>
 
           <div class="card">
-            <h2>Pescaria</h2>
-            <label>Comando</label>
-            <input id="command" value="!pescar" />
-            <div class="grid two compact">
-              <div><label>Cooldown (s)</label><input id="cooldown" type="number" min="0" /></div>
-              <div><label>Animação (s)</label><input id="fishingSeconds" type="number" min="0" step="0.5" /></div>
-            </div>
-            <label class="check-row"><input id="chatResultEnabled" type="checkbox" /> <span>FishingBotJJJ responde o resultado no chat</span></label>
-            <div class="row">
-              <button id="saveSettings">Salvar</button>
-              <button id="testFish" class="primary">Testar pescaria</button>
+            <h2>Último evento</h2>
+            <div id="eventLog" class="event-log">Nenhuma pescaria ainda.</div>
+            <div class="quick-info">
+              <div><span>Comando</span><b id="quickCommand">!pescar</b></div>
+              <div><span>Cooldown</span><b id="quickCooldown">120s</b></div>
+              <div><span>Overlay</span><b>127.0.0.1:8766</b></div>
             </div>
           </div>
-        </div>
-
-        <div class="card">
-          <h2>Último evento</h2>
-          <div id="eventLog" class="event-log">Nenhuma pescaria ainda.</div>
         </div>
       </section>
 
@@ -68,79 +74,145 @@
         <div class="title-row">
           <div>
             <h1>Peixes e itens</h1>
-            <p class="muted">Cada item tem uma chance direta em %. Para a pescaria funcionar, o total precisa dar 100%.</p>
+            <p class="muted">Editor compacto. Clique em Editar e a edição abre logo abaixo daquele item.</p>
           </div>
-          <button id="newItem" class="primary">+ Adicionar peixe/item</button>
+          <button id="newItem" class="primary">+ Adicionar item</button>
         </div>
 
         <div class="chance-summary card slim-card">
-          <div>
-            <span class="muted">Total das chances</span>
-            <strong id="chanceTotal">0%</strong>
-          </div>
+          <div><span class="muted">Total das chances</span><strong id="chanceTotal">0%</strong></div>
           <div id="chanceHint" class="chance-hint">O total precisa ser 100%.</div>
         </div>
 
-        <div class="card table-wrap">
-          <table>
-            <thead>
-              <tr><th>Nome</th><th>Raridade</th><th>Chance</th><th>Ouro</th><th></th></tr>
-            </thead>
+        <div class="card table-wrap item-table-card">
+          <table class="items-table">
+            <thead><tr><th></th><th>Nome</th><th>Raridade</th><th>Chance</th><th>Ouro</th><th></th></tr></thead>
             <tbody id="itemsBody"></tbody>
           </table>
         </div>
+      </section>
 
-        <div id="itemEditor" class="card hidden editor">
-          <div class="editor-head">
-            <h2 id="itemEditorTitle">Novo peixe/item</h2>
-            <span id="editingBadge" class="badge hidden">Editando</span>
-          </div>
-          <div class="grid two">
-            <div><label>Nome</label><input id="itemName" placeholder="Ex.: Sardinha" /></div>
-            <div>
-              <label>Raridade</label>
-              <select id="itemRarity">
-                <option>Comum</option>
-                <option>Incomum</option>
-                <option>Raro</option>
-                <option>Épico</option>
-                <option>Lendário</option>
-                <option>Mítico</option>
-              </select>
-            </div>
-            <div><label>Chance (%)</label><input id="itemChance" type="number" min="0" max="100" step="0.01" value="0" /></div>
-            <div class="gold-range">
-              <div><label>Ouro mínimo</label><input id="itemGoldMin" type="number" min="0" value="10" /></div>
-              <div><label>Ouro máximo</label><input id="itemGoldMax" type="number" min="0" value="20" /></div>
-            </div>
-          </div>
-          <p class="muted editor-note">Exemplo: 10–20 significa que cada captura vai sortear aleatoriamente um valor entre 10 e 20 de Ouro.</p>
-          <div class="row">
-            <button id="saveItem" class="primary">Salvar</button>
-            <button id="deleteItem" class="danger hidden">Excluir</button>
-            <button id="cancelItem">Cancelar</button>
-          </div>
+      <section class="page" id="page-collection">
+        <div class="title-row">
+          <div><h1>Coleção</h1><p class="muted">Bestiário independente para cada espectador do canal.</p></div>
+          <select id="collectionPlayer" class="player-select"></select>
         </div>
+        <div class="collection-progress card slim-card">
+          <div><span class="muted">Descobertos</span><strong id="collectionCount">0 / 0</strong></div>
+          <div class="progress"><span id="collectionBar"></span></div>
+        </div>
+        <div id="collectionGrid" class="collection-grid"></div>
       </section>
 
       <section class="page" id="page-ranking">
-        <h1>Ranking</h1>
+        <div class="title-row"><div><h1>Ranking</h1><p class="muted">Edite ou zere apenas um jogador. A coleção dele não é apagada.</p></div></div>
         <div class="card table-wrap">
-          <table><thead><tr><th>#</th><th>Usuário</th><th>Ouro</th><th>Pescarias</th></tr></thead><tbody id="rankingBody"></tbody></table>
+          <table><thead><tr><th>#</th><th>Usuário</th><th>Ouro</th><th>Pescarias</th><th></th></tr></thead><tbody id="rankingBody"></tbody></table>
+        </div>
+      </section>
+
+      <section class="page" id="page-achievements">
+        <div class="title-row">
+          <div><h1>Conquistas</h1><p class="muted">Primeira base de progressão. Depois podemos adicionar conquistas secretas e personalizáveis.</p></div>
+          <select id="achievementPlayer" class="player-select"></select>
+        </div>
+        <div id="achievementsGrid" class="achievement-grid"></div>
+      </section>
+
+      <section class="page" id="page-commands">
+        <h1>Comandos e mensagens</h1>
+        <p class="muted">Personalize o que o chat usa e o que o bot responde.</p>
+        <div class="grid two">
+          <div class="card">
+            <h2>Comando de pescaria</h2>
+            <label>Comando</label><input id="command" value="!pescar" />
+            <label class="check-row"><input id="chatResultEnabled" type="checkbox" /><span>Bot responde o resultado</span></label>
+            <label class="check-row"><input id="chatCooldownEnabled" type="checkbox" /><span>Bot avisa quando o usuário está em cooldown</span></label>
+            <div class="row"><button id="saveCommandSettings" class="primary">Salvar comandos</button></div>
+          </div>
+          <div class="card">
+            <h2>Variáveis disponíveis</h2>
+            <div class="variable-list">
+              <code>{user}</code><span>nome do usuário</span>
+              <code>{item}</code><span>item pescado</span>
+              <code>{raridade}</code><span>raridade</span>
+              <code>{ouro}</code><span>ouro ganho</span>
+              <code>{ouro_total}</code><span>ouro acumulado</span>
+              <code>{pescarias}</code><span>total de pescarias</span>
+              <code>{tempo}</code><span>tempo restante do cooldown</span>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <h2>Mensagem padrão de resultado</h2>
+          <textarea id="resultTemplate" rows="3"></textarea>
+          <p class="muted tiny">Cada item também pode ter uma mensagem própria. Se estiver vazia, usa esta mensagem padrão.</p>
+        </div>
+        <div class="card">
+          <h2>Mensagem de cooldown</h2>
+          <textarea id="cooldownTemplate" rows="3"></textarea>
+          <div id="cooldownExample" class="template-preview"></div>
         </div>
       </section>
 
       <section class="page" id="page-overlay">
-        <h1>Overlay / OBS</h1>
-        <div class="card">
-          <h2>Browser Source</h2>
-          <p>Use 1920×1080 no OBS. A caixa da pescaria foi reduzida nesta versão.</p>
-          <div class="urlbox" id="overlayUrl">http://127.0.0.1:8766/overlay.html</div>
-          <label class="check-row"><input id="overlaySound" type="checkbox" /> <span>Som de pescaria/fisgada no overlay</span></label>
-          <div class="row">
-            <button id="copyOverlay" class="primary">Copiar URL</button>
-            <button id="openOverlay">Abrir preview</button>
-            <button id="saveOverlaySettings">Salvar overlay</button>
+        <div class="title-row"><div><h1>Overlay / OBS</h1><p class="muted">Edite e veja uma prévia dentro do aplicativo.</p></div></div>
+        <div class="overlay-editor-grid">
+          <div class="card controls-card">
+            <h2>Aparência</h2>
+            <div class="grid two compact">
+              <div><label>Fundo</label><input id="overlayBg" type="color" /></div>
+              <div><label>Texto</label><input id="overlayText" type="color" /></div>
+              <div><label>Destaque</label><input id="overlayAccent" type="color" /></div>
+              <div><label>Ouro</label><input id="overlayGold" type="color" /></div>
+            </div>
+            <label>Opacidade do fundo <span id="overlayOpacityValue"></span></label><input id="overlayOpacity" type="range" min="0" max="100" />
+            <label>Escala <span id="overlayScaleValue"></span></label><input id="overlayScale" type="range" min="60" max="140" />
+            <label>Tamanho da imagem <span id="overlayImageSizeValue"></span></label><input id="overlayImageSize" type="range" min="36" max="120" />
+            <label>Arredondamento <span id="overlayRadiusValue"></span></label><input id="overlayRadius" type="range" min="0" max="32" />
+            <label>Animação</label>
+            <select id="overlayAnimation"><option value="pop">Pop</option><option value="slide">Deslizar</option><option value="bounce">Salto</option></select>
+            <label class="check-row"><input id="overlayShowImage" type="checkbox" /><span>Mostrar imagem do item</span></label>
+            <label class="check-row"><input id="overlaySound" type="checkbox" /><span>Som de pescaria/fisgada</span></label>
+            <h2 class="section-gap">Posição</h2>
+            <label>Horizontal <span id="overlayXValue"></span></label><input id="overlayX" type="range" min="5" max="95" />
+            <label>Vertical <span id="overlayYValue"></span></label><input id="overlayY" type="range" min="5" max="95" />
+            <div class="row"><button id="saveOverlaySettings" class="primary">Salvar overlay</button><button id="resetOverlay">Padrão</button></div>
+          </div>
+
+          <div>
+            <div class="card preview-card">
+              <div class="preview-label">PRÉVIA 16:9</div>
+              <div id="overlayPreview" class="overlay-preview-stage">
+                <div id="previewFishingCard" class="preview-fishing-card">
+                  <img id="previewItemImage" class="preview-item-image hidden" alt="" />
+                  <div><div class="preview-name">JumperJJJ</div><div class="preview-item">Tubarão Dourado</div><div class="preview-rarity">LENDÁRIO</div><div class="preview-gold">+9.842 OURO</div></div>
+                </div>
+              </div>
+            </div>
+            <div class="card">
+              <h2>Browser Source</h2>
+              <p class="muted">OBS em 1920×1080.</p>
+              <div class="urlbox" id="overlayUrl">http://127.0.0.1:8766/overlay.html</div>
+              <div class="row"><button id="copyOverlay" class="primary">Copiar URL</button><button id="openOverlay">Abrir preview real</button></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="page" id="page-settings">
+        <h1>Configurações</h1>
+        <div class="grid two">
+          <div class="card">
+            <h2>Tempos do jogo</h2>
+            <label>Cooldown entre pescarias (segundos)</label><input id="cooldown" type="number" min="0" />
+            <label>Tempo da animação pescando (segundos)</label><input id="fishingSeconds" type="number" min="0" step="0.5" />
+            <div class="row"><button id="saveGameSettings" class="primary">Salvar</button></div>
+          </div>
+          <div class="card">
+            <h2>Dados locais</h2>
+            <p class="muted">O ranking, coleção, itens e configurações ficam no SQLite deste computador. Outros streamers terão bancos independentes.</p>
+            <p class="muted tiny">Na próxima etapa podemos adicionar botões de backup/restauração e abrir a pasta de dados.</p>
           </div>
         </div>
       </section>

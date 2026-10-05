@@ -10,14 +10,13 @@ let db;
 let server;
 let engine;
 let twitch;
-let hourlyTokenValidation = null;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 1180,
-    height: 800,
-    minWidth: 980,
-    minHeight: 680,
+    width: 1260,
+    height: 840,
+    minWidth: 1040,
+    minHeight: 700,
     backgroundColor: '#0b1117',
     autoHideMenuBar: true,
     webPreferences: {
@@ -29,10 +28,55 @@ function createWindow() {
   mainWindow.loadURL('http://127.0.0.1:8766/index.html');
 }
 
-function formatCatchMessage(result) {
-  const mention = `@${result.user.login || result.user.displayName}`;
-  const gold = Number(result.item.goldAwarded || 0).toLocaleString('pt-BR');
-  return `${mention} pescou ${result.item.name} (${result.item.rarity}) e ganhou ${gold} de Ouro! 🎣`;
+function formatDuration(totalSeconds) {
+  const seconds = Math.max(0, Math.ceil(Number(totalSeconds) || 0));
+  const minutes = Math.floor(seconds / 60);
+  const rest = seconds % 60;
+  if (minutes && rest) return `${minutes} min ${rest} s`;
+  if (minutes) return `${minutes} min`;
+  return `${rest} s`;
+}
+
+function renderTemplate(template, values) {
+  const source = String(template || '');
+  return source.replace(/\{(user|item|raridade|ouro|ouro_total|pescarias|tempo)\}/gi, (_match, key) => {
+    const normalized = key.toLowerCase();
+    return values[normalized] ?? '';
+  }).replace(/\s+/g, ' ').trim().slice(0, 500);
+}
+
+function resultMessage(result, settings) {
+  const template = String(result.item.message_template || '').trim() || settings.chat_result_template;
+  return renderTemplate(template, {
+    user: result.user.login || result.user.displayName,
+    item: result.item.name,
+    raridade: result.item.rarity,
+    ouro: Number(result.item.goldAwarded || 0).toLocaleString('pt-BR'),
+    ouro_total: Number(result.player.gold || 0).toLocaleString('pt-BR'),
+    pescarias: Number(result.player.totalCatches || 0).toLocaleString('pt-BR'),
+    tempo: ''
+  });
+}
+
+function cooldownMessage(user, remainingSeconds, settings) {
+  return renderTemplate(settings.chat_cooldown_template, {
+    user: user.login || user.displayName,
+    item: '',
+    raridade: '',
+    ouro: '',
+    ouro_total: '',
+    pescarias: '',
+    tempo: formatDuration(remainingSeconds)
+  });
+}
+
+async function safeSendChat(message) {
+  if (!message || !twitch?.isConnected()) return;
+  try {
+    await twitch.sendChatMessage(message);
+  } catch (error) {
+    server.broadcast({ type: 'twitch:error', message: error.message || String(error) });
+  }
 }
 
 async function bootstrap() {
@@ -55,6 +99,9 @@ async function bootstrap() {
 
     if (!result.ok && result.reason === 'cooldown') {
       server.broadcast({ type: 'fishing:cooldown', user, remainingSeconds: result.remainingSeconds });
+      if (settings.chat_cooldown_enabled !== '0') {
+        await safeSendChat(cooldownMessage(user, result.remainingSeconds, settings));
+      }
       return;
     }
 
@@ -67,17 +114,11 @@ async function bootstrap() {
     }
 
     if (result.ok && settings.chat_result_enabled !== '0') {
-      try {
-        await twitch.sendChatMessage(formatCatchMessage(result));
-      } catch (error) {
-        server.broadcast({ type: 'twitch:error', message: error.message || String(error) });
-      }
+      await safeSendChat(resultMessage(result, db.getSettings()));
     }
   });
 
-  twitch.on('connected', (identity) => {
-    server.broadcast({ type: 'twitch:connected', identity });
-  });
+  twitch.on('connected', (identity) => server.broadcast({ type: 'twitch:connected', identity }));
   twitch.on('disconnected', () => server.broadcast({ type: 'twitch:disconnected' }));
   twitch.on('error', (error) => server.broadcast({ type: 'twitch:error', message: error.message || String(error) }));
 
@@ -106,7 +147,6 @@ app.on('window-all-closed', () => {
 });
 
 app.on('before-quit', async () => {
-  if (hourlyTokenValidation) clearInterval(hourlyTokenValidation);
   try { twitch?.disconnect(); } catch {}
   try { await server?.stop(); } catch {}
   try { db?.close(); } catch {}

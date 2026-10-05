@@ -95,6 +95,11 @@ class TwitchClient extends EventEmitter {
     this.clientId = clientId;
     await this.validateToken(accessToken);
     this.botIdentity = await this.loadOwnIdentity(clientId, accessToken);
+    const expectedBotLogin = String(this.db.getSetting('expected_bot_login', 'fishingbotjjj') || '').trim().toLowerCase();
+    if (expectedBotLogin && this.botIdentity.login.toLowerCase() !== expectedBotLogin) {
+      this.token = null;
+      throw new Error(`Conta Twitch errada na autorização. Você autorizou ${this.botIdentity.display_name}; autorize a conta ${expectedBotLogin}.`);
+    }
     this.channelIdentity = await this.loadUserByLogin(clientId, accessToken, targetChannelLogin);
 
     this.db.setSetting('bot_user_id', this.botIdentity.id);
