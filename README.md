@@ -1,15 +1,28 @@
-# Fishing Chat Game — v0.1.1
+# Fishing Chat Game — v0.2.0
 
-Base inicial de um jogo de pescaria interativo para Twitch.
+Aplicativo desktop local para jogo de pescaria interativo no chat da Twitch.
 
 ## Arquitetura
 
 - Electron: aplicativo desktop.
 - Twitch EventSub WebSocket: leitura do chat.
-- OAuth Device Code Flow: login para aplicativo Electron sem Client Secret embutido.
-- SQLite local (`node:sqlite`): progresso fica no PC do streamer.
-- Express + WebSocket local: painel/overlay.
+- Twitch Helix Chat Messages: FishingBotJJJ responde os resultados no chat.
+- OAuth Device Code Flow: login sem Client Secret embutido no `.exe`.
+- SQLite local (`node:sqlite`): progresso fica no PC do streamer e é separado por canal + usuário Twitch.
+- Express + WebSocket local: painel e overlay.
 - OBS Browser Source: `http://127.0.0.1:8766/overlay.html` em 1920×1080.
+
+## v0.2.0
+
+- Editor completo: adicionar, editar e excluir peixes/itens.
+- Removidos do painel: Tipo, Peso e Ativo.
+- Chance direta em porcentagem, com total visível; o catálogo deve somar 100%.
+- Ouro por faixa mínima/máxima e valor sorteado a cada captura.
+- Migração automática do catálogo padrão v0.1.x para chances simples (30%, 25%, etc.).
+- Overlay menor.
+- Som sintetizado de lançamento/fisgada e resultado no overlay, com opção de ligar/desligar.
+- FishingBotJJJ envia no chat: `@usuario pescou ITEM (RARIDADE) e ganhou X de Ouro! 🎣`.
+- Exclusão do catálogo preserva histórico e coleção já conquistados.
 
 ## Rodar localmente
 
@@ -18,33 +31,10 @@ npm install
 npm start
 ```
 
-O banco é criado automaticamente no diretório `userData` do Electron, fora da pasta de instalação.
+## Gerar instalador
 
-## Estado atual
+```bash
+npm run dist -- --publish never
+```
 
-- Banco local com separação por `channel_id + twitch_user_id`.
-- Catálogo inicial de itens.
-- Peso/chance automática.
-- Ouro, total de pescarias, coleção e histórico.
-- Cooldown.
-- Teste de pescaria sem Twitch.
-- Overlay dinâmico para OBS.
-- Device Code Flow e EventSub preparados para Client ID Twitch.
-- Editor inicial para adicionar itens.
-- Ranking local por ouro.
-
-## Próximos passos
-
-1. Registrar o aplicativo na Twitch e informar o Client ID.
-2. Testar conexão real com `!pescar`.
-3. Persistir/renovar tokens com Electron `safeStorage`.
-4. Adicionar edição completa de itens e imagens.
-5. Coleção, conquistas e painel de estatísticas.
-6. Fila visual do overlay e estilos/animações.
-7. GitHub Actions + electron-builder para gerar instalador `.exe`.
-
-
-## v0.1.1
-- Separa a conta do bot do canal da live.
-- Device Code pede user:bot, user:read:chat e user:write:chat.
-- Informe o login do canal da live antes de conectar.
+O banco é criado no diretório `userData` do Electron, fora da pasta de instalação.

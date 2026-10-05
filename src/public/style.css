@@ -18,13 +18,16 @@ h2 { margin: 0 0 18px; font-size: 17px; }
 .grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .grid.compact { gap: 10px; }
 .card { background: #101a22; border: 1px solid #1f303c; border-radius: 12px; padding: 20px; margin-top: 18px; }
+.slim-card { padding: 14px 18px; }
 label { display: block; color: #91a6b4; font-size: 12px; margin: 12px 0 6px; }
 input, select { width: 100%; border: 1px solid #2a3b47; border-radius: 8px; padding: 10px 11px; background: #0a1117; color: #eaf2f7; outline: none; }
 input:focus, select:focus { border-color: #43c7aa; }
 button { border: 1px solid #334753; border-radius: 8px; padding: 9px 13px; background: #16232c; color: white; cursor: pointer; }
 button:hover { filter: brightness(1.1); }
 button.primary { background: #1c9f84; border-color: #28b899; }
-.row { display: flex; gap: 10px; margin-top: 16px; align-items: center; }
+button.danger { background: #7a2932; border-color: #a93d49; }
+button.small { padding: 6px 10px; font-size: 12px; }
+.row { display: flex; gap: 10px; margin-top: 16px; align-items: center; flex-wrap: wrap; }
 .status { font-weight: 700; margin-bottom: 12px; }
 .status.offline { color: #ef6f75; }
 .status.online { color: #54d69b; }
@@ -38,5 +41,19 @@ table { width: 100%; border-collapse: collapse; }
 th, td { padding: 12px 10px; border-bottom: 1px solid #20303a; text-align: left; white-space: nowrap; }
 th { color: #8399a7; font-size: 12px; font-weight: 700; }
 td { font-size: 14px; }
+.actions-cell { text-align: right; width: 1%; }
 .urlbox { padding: 12px; background: #091016; border: 1px dashed #315062; border-radius: 8px; font-family: ui-monospace, monospace; color: #8fe6d1; }
+.check-row { display: flex; align-items: center; gap: 8px; cursor: pointer; color: #b3c4ce; font-size: 13px; }
+.check-row input { width: auto; margin: 0; accent-color: #1c9f84; }
+.chance-summary { display: flex; align-items: center; justify-content: space-between; gap: 18px; }
+.chance-summary strong { display: block; font-size: 23px; margin-top: 2px; }
+.chance-ok { color: #54d69b; }
+.chance-bad { color: #ffbd66; }
+.chance-hint { color: #ffbd66; font-size: 13px; }
+.chance-hint.ok { color: #54d69b; }
+.editor-head { display: flex; align-items: center; gap: 10px; }
+.editor-head h2 { margin-bottom: 0; }
+.badge { display: inline-flex; padding: 4px 8px; border-radius: 999px; background: #19382f; color: #75d6bc; font-size: 11px; font-weight: 700; }
+.gold-range { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.editor-note { margin: 12px 0 0; font-size: 12px; }
 @media (max-width: 900px) { .app { grid-template-columns: 190px 1fr; } .grid.two,.grid.three { grid-template-columns: 1fr; } main { padding: 20px; } }

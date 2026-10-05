@@ -33,33 +33,54 @@ class LocalServer {
       const settings = this.db.getSettings();
       res.json({
         ok: true,
-        version: '0.1.1',
+        version: '0.2.0',
         overlayUrl: `http://127.0.0.1:${this.port}/overlay.html`,
-        settings
+        settings,
+        chanceTotal: this.db.getChanceTotal()
       });
     });
 
     this.app.get('/api/items', (_req, res) => {
       const items = this.db.listItems();
-      const withChance = this.engine ? this.engine.getChanceMap(items.filter((i) => i.enabled)) : items;
-      const chanceById = new Map(withChance.map((item) => [item.id, item.chance]));
-      res.json(items.map((item) => ({ ...item, chance: chanceById.get(item.id) || 0 })));
+      res.json({ items, chanceTotal: this.db.getChanceTotal() });
     });
 
     this.app.post('/api/items', (req, res) => {
-      if (!req.body?.name) return res.status(400).json({ error: 'Nome é obrigatório.' });
-      const id = this.db.addItem(req.body);
-      res.json({ ok: true, id });
+      try {
+        if (!req.body?.name?.trim()) return res.status(400).json({ error: 'Nome é obrigatório.' });
+        const id = this.db.addItem(req.body);
+        res.json({ ok: true, id, chanceTotal: this.db.getChanceTotal() });
+      } catch (error) {
+        res.status(400).json({ error: error.message });
+      }
     });
 
     this.app.put('/api/items/:id', (req, res) => {
-      if (!req.body?.name) return res.status(400).json({ error: 'Nome é obrigatório.' });
-      this.db.updateItem(req.params.id, req.body);
-      res.json({ ok: true });
+      try {
+        if (!req.body?.name?.trim()) return res.status(400).json({ error: 'Nome é obrigatório.' });
+        this.db.updateItem(req.params.id, req.body);
+        res.json({ ok: true, chanceTotal: this.db.getChanceTotal() });
+      } catch (error) {
+        res.status(400).json({ error: error.message });
+      }
+    });
+
+    this.app.delete('/api/items/:id', (req, res) => {
+      this.db.deleteItem(req.params.id);
+      res.json({ ok: true, chanceTotal: this.db.getChanceTotal() });
     });
 
     this.app.post('/api/settings', (req, res) => {
-      const allowed = ['command', 'cooldown_seconds', 'fishing_seconds', 'overlay_enabled', 'twitch_client_id', 'target_channel_login'];
+      const allowed = [
+        'command',
+        'cooldown_seconds',
+        'fishing_seconds',
+        'overlay_enabled',
+        'overlay_sound_enabled',
+        'chat_result_enabled',
+        'twitch_client_id',
+        'target_channel_login'
+      ];
       for (const key of allowed) {
         if (Object.prototype.hasOwnProperty.call(req.body || {}, key)) this.db.setSetting(key, req.body[key]);
       }
@@ -79,6 +100,11 @@ class LocalServer {
         user,
         bypassCooldown: true
       });
+      if (!result.ok && result.reason === 'invalid_chance_total') {
+        return res.status(400).json({
+          error: `As chances dos itens precisam somar 100%. Total atual: ${Number(result.chanceTotal || 0).toFixed(2)}%.`
+        });
+      }
       res.json(result);
     });
 

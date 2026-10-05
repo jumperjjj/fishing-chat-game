@@ -4,6 +4,7 @@ const DEVICE_URL = 'https://id.twitch.tv/oauth2/device';
 const TOKEN_URL = 'https://id.twitch.tv/oauth2/token';
 const VALIDATE_URL = 'https://id.twitch.tv/oauth2/validate';
 const HELIX_USERS = 'https://api.twitch.tv/helix/users';
+const HELIX_CHAT_MESSAGES = 'https://api.twitch.tv/helix/chat/messages';
 const EVENTSUB_URL = 'https://api.twitch.tv/helix/eventsub/subscriptions';
 const EVENTSUB_WS = 'wss://eventsub.wss.twitch.tv/ws';
 const SCOPES = 'user:bot user:read:chat user:write:chat';
@@ -14,6 +15,7 @@ class TwitchClient extends EventEmitter {
     this.db = database;
     this.ws = null;
     this.token = null;
+    this.clientId = null;
     this.botIdentity = null;
     this.channelIdentity = null;
     this.sessionId = null;
@@ -90,6 +92,7 @@ class TwitchClient extends EventEmitter {
 
   async connect({ clientId, accessToken, targetChannelLogin }) {
     this.token = accessToken;
+    this.clientId = clientId;
     await this.validateToken(accessToken);
     this.botIdentity = await this.loadOwnIdentity(clientId, accessToken);
     this.channelIdentity = await this.loadUserByLogin(clientId, accessToken, targetChannelLogin);
@@ -104,6 +107,37 @@ class TwitchClient extends EventEmitter {
 
     this.openEventSubSocket(clientId);
     return { bot: this.botIdentity, channel: this.channelIdentity };
+  }
+
+  isConnected() {
+    return Boolean(this.token && this.clientId && this.botIdentity?.id && this.channelIdentity?.id);
+  }
+
+  async sendChatMessage(message) {
+    if (!this.isConnected()) throw new Error('Bot não está conectado à Twitch.');
+    const response = await fetch(HELIX_CHAT_MESSAGES, {
+      method: 'POST',
+      headers: {
+        'Client-Id': this.clientId,
+        Authorization: `Bearer ${this.token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        broadcaster_id: this.channelIdentity.id,
+        sender_id: this.botIdentity.id,
+        message: String(message).slice(0, 500)
+      })
+    });
+
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const reason = body?.message || body?.error || `HTTP ${response.status}`;
+      throw new Error(`Não foi possível enviar mensagem no chat: ${reason}`);
+    }
+    if (body?.data?.[0]?.is_sent === false) {
+      throw new Error(body.data[0].drop_reason?.message || 'A Twitch não enviou a mensagem do bot.');
+    }
+    return body;
   }
 
   openEventSubSocket(clientId, url = EVENTSUB_WS) {
@@ -185,6 +219,8 @@ class TwitchClient extends EventEmitter {
     if (this.ws) this.ws.close();
     this.ws = null;
     this.sessionId = null;
+    this.token = null;
+    this.clientId = null;
     this.botIdentity = null;
     this.channelIdentity = null;
   }

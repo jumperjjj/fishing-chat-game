@@ -29,6 +29,12 @@ function createWindow() {
   mainWindow.loadURL('http://127.0.0.1:8766/index.html');
 }
 
+function formatCatchMessage(result) {
+  const mention = `@${result.user.login || result.user.displayName}`;
+  const gold = Number(result.item.goldAwarded || 0).toLocaleString('pt-BR');
+  return `${mention} pescou ${result.item.name} (${result.item.rarity}) e ganhou ${gold} de Ouro! 🎣`;
+}
+
 async function bootstrap() {
   db = new GameDatabase(app.getPath('userData'));
   server = new LocalServer({ database: db, port: 8766 });
@@ -49,6 +55,23 @@ async function bootstrap() {
 
     if (!result.ok && result.reason === 'cooldown') {
       server.broadcast({ type: 'fishing:cooldown', user, remainingSeconds: result.remainingSeconds });
+      return;
+    }
+
+    if (!result.ok && result.reason === 'invalid_chance_total') {
+      server.broadcast({
+        type: 'fishing:error',
+        message: `As chances dos peixes precisam somar 100%. Total atual: ${Number(result.chanceTotal || 0).toFixed(2)}%.`
+      });
+      return;
+    }
+
+    if (result.ok && settings.chat_result_enabled !== '0') {
+      try {
+        await twitch.sendChatMessage(formatCatchMessage(result));
+      } catch (error) {
+        server.broadcast({ type: 'twitch:error', message: error.message || String(error) });
+      }
     }
   });
 
@@ -75,7 +98,6 @@ ipcMain.handle('twitch-complete-device-auth', async (_event, payload) => {
   const { clientId, deviceCode, interval, expiresIn, targetChannelLogin } = payload;
   const token = await twitch.pollDeviceToken(clientId, deviceCode, interval, expiresIn);
   const identity = await twitch.connect({ clientId, accessToken: token.access_token, targetChannelLogin });
-  // TODO v0.2: armazenar refresh token com proteção do SO (safeStorage).
   return { identity, tokenExpiresIn: token.expires_in };
 });
 

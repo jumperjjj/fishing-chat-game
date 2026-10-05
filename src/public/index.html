@@ -14,13 +14,13 @@
       <button class="nav" data-page="items">Peixes e itens</button>
       <button class="nav" data-page="ranking">Ranking</button>
       <button class="nav" data-page="overlay">Overlay / OBS</button>
-      <div class="version">v0.1.1 • local</div>
+      <div class="version">v0.2.0 • local</div>
     </aside>
 
     <main>
       <section class="page active" id="page-dashboard">
         <h1>Visão geral</h1>
-        <p class="muted">Base local: Twitch + jogo + SQLite + overlay OBS.</p>
+        <p class="muted">Twitch + jogo + SQLite local + overlay OBS.</p>
 
         <div class="grid two">
           <div class="card">
@@ -29,8 +29,8 @@
             <label>Client ID da aplicação Twitch</label>
             <input id="clientId" placeholder="Cole o Client ID da Twitch" />
             <label>Canal da live</label>
-            <input id="targetChannel" placeholder="ex.: seu_canal" />
-            <p class="muted">A autorização deve ser feita logado na conta do bot. O bot ouvirá o canal informado acima.</p>
+            <input id="targetChannel" placeholder="ex.: jumperjjj" />
+            <p class="muted">Autorize usando a conta FishingBotJJJ. O bot ouvirá o canal informado acima.</p>
             <div class="row">
               <button id="connectTwitch" class="primary">Conectar Twitch</button>
             </div>
@@ -50,6 +50,7 @@
               <div><label>Cooldown (s)</label><input id="cooldown" type="number" min="0" /></div>
               <div><label>Animação (s)</label><input id="fishingSeconds" type="number" min="0" step="0.5" /></div>
             </div>
+            <label class="check-row"><input id="chatResultEnabled" type="checkbox" /> <span>FishingBotJJJ responde o resultado no chat</span></label>
             <div class="row">
               <button id="saveSettings">Salvar</button>
               <button id="testFish" class="primary">Testar pescaria</button>
@@ -65,25 +66,60 @@
 
       <section class="page" id="page-items">
         <div class="title-row">
-          <div><h1>Peixes e itens</h1><p class="muted">Use pesos; a chance é recalculada automaticamente.</p></div>
-          <button id="newItem" class="primary">+ Adicionar item</button>
+          <div>
+            <h1>Peixes e itens</h1>
+            <p class="muted">Cada item tem uma chance direta em %. Para a pescaria funcionar, o total precisa dar 100%.</p>
+          </div>
+          <button id="newItem" class="primary">+ Adicionar peixe/item</button>
         </div>
+
+        <div class="chance-summary card slim-card">
+          <div>
+            <span class="muted">Total das chances</span>
+            <strong id="chanceTotal">0%</strong>
+          </div>
+          <div id="chanceHint" class="chance-hint">O total precisa ser 100%.</div>
+        </div>
+
         <div class="card table-wrap">
           <table>
-            <thead><tr><th>Nome</th><th>Tipo</th><th>Raridade</th><th>Peso</th><th>Chance</th><th>Ouro</th><th>Ativo</th></tr></thead>
+            <thead>
+              <tr><th>Nome</th><th>Raridade</th><th>Chance</th><th>Ouro</th><th></th></tr>
+            </thead>
             <tbody id="itemsBody"></tbody>
           </table>
         </div>
+
         <div id="itemEditor" class="card hidden editor">
-          <h2>Novo item</h2>
-          <div class="grid three">
-            <div><label>Nome</label><input id="itemName" /></div>
-            <div><label>Tipo</label><input id="itemType" value="Peixe" /></div>
-            <div><label>Raridade</label><select id="itemRarity"><option>Comum</option><option>Incomum</option><option>Raro</option><option>Épico</option><option>Lendário</option><option>Mítico</option></select></div>
-            <div><label>Peso</label><input id="itemWeight" type="number" min="1" value="100" /></div>
-            <div><label>Ouro</label><input id="itemGold" type="number" value="10" /></div>
+          <div class="editor-head">
+            <h2 id="itemEditorTitle">Novo peixe/item</h2>
+            <span id="editingBadge" class="badge hidden">Editando</span>
           </div>
-          <div class="row"><button id="saveItem" class="primary">Salvar item</button><button id="cancelItem">Cancelar</button></div>
+          <div class="grid two">
+            <div><label>Nome</label><input id="itemName" placeholder="Ex.: Sardinha" /></div>
+            <div>
+              <label>Raridade</label>
+              <select id="itemRarity">
+                <option>Comum</option>
+                <option>Incomum</option>
+                <option>Raro</option>
+                <option>Épico</option>
+                <option>Lendário</option>
+                <option>Mítico</option>
+              </select>
+            </div>
+            <div><label>Chance (%)</label><input id="itemChance" type="number" min="0" max="100" step="0.01" value="0" /></div>
+            <div class="gold-range">
+              <div><label>Ouro mínimo</label><input id="itemGoldMin" type="number" min="0" value="10" /></div>
+              <div><label>Ouro máximo</label><input id="itemGoldMax" type="number" min="0" value="20" /></div>
+            </div>
+          </div>
+          <p class="muted editor-note">Exemplo: 10–20 significa que cada captura vai sortear aleatoriamente um valor entre 10 e 20 de Ouro.</p>
+          <div class="row">
+            <button id="saveItem" class="primary">Salvar</button>
+            <button id="deleteItem" class="danger hidden">Excluir</button>
+            <button id="cancelItem">Cancelar</button>
+          </div>
         </div>
       </section>
 
@@ -98,9 +134,14 @@
         <h1>Overlay / OBS</h1>
         <div class="card">
           <h2>Browser Source</h2>
-          <p>Use 1920×1080 no OBS.</p>
+          <p>Use 1920×1080 no OBS. A caixa da pescaria foi reduzida nesta versão.</p>
           <div class="urlbox" id="overlayUrl">http://127.0.0.1:8766/overlay.html</div>
-          <div class="row"><button id="copyOverlay" class="primary">Copiar URL</button><button id="openOverlay">Abrir preview</button></div>
+          <label class="check-row"><input id="overlaySound" type="checkbox" /> <span>Som de pescaria/fisgada no overlay</span></label>
+          <div class="row">
+            <button id="copyOverlay" class="primary">Copiar URL</button>
+            <button id="openOverlay">Abrir preview</button>
+            <button id="saveOverlaySettings">Salvar overlay</button>
+          </div>
         </div>
       </section>
     </main>

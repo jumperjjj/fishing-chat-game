@@ -5,24 +5,22 @@ class FishingEngine {
     this.queue = Promise.resolve();
   }
 
-  weightedPick(items) {
-    const total = items.reduce((sum, item) => sum + Math.max(0, Number(item.weight)), 0);
-    if (!total) return null;
+  pickByChance(items) {
+    const total = items.reduce((sum, item) => sum + Math.max(0, Number(item.chance || 0)), 0);
+    if (!items.length || Math.abs(total - 100) > 0.01) return null;
 
-    let roll = Math.random() * total;
+    let roll = Math.random() * 100;
     for (const item of items) {
-      roll -= Math.max(0, Number(item.weight));
+      roll -= Math.max(0, Number(item.chance || 0));
       if (roll < 0) return item;
     }
     return items[items.length - 1];
   }
 
-  getChanceMap(items) {
-    const total = items.reduce((sum, item) => sum + Math.max(0, Number(item.weight)), 0);
-    return items.map((item) => ({
-      ...item,
-      chance: total > 0 ? (Number(item.weight) / total) * 100 : 0
-    }));
+  randomGold(item) {
+    const min = Math.max(0, Math.floor(Number(item.gold_min) || 0));
+    const max = Math.max(min, Math.floor(Number(item.gold_max) || min));
+    return Math.floor(Math.random() * (max - min + 1)) + min;
   }
 
   async fish({ channelId, user, bypassCooldown = false }) {
@@ -39,24 +37,35 @@ class FishingEngine {
       };
     }
 
+    const items = this.db.getFishingItems();
+    const chanceTotal = items.reduce((sum, item) => sum + Number(item.chance || 0), 0);
+    if (!items.length) return { ok: false, reason: 'no_items' };
+    if (Math.abs(chanceTotal - 100) > 0.01) {
+      return { ok: false, reason: 'invalid_chance_total', chanceTotal };
+    }
+
     // Reserva o cooldown imediatamente para impedir spam enquanto a animação está na fila.
     this.db.markFishingStarted(channelId, user);
 
     const job = async () => {
       const latestSettings = this.db.getSettings();
       const fishingMs = Math.max(0, Number(latestSettings.fishing_seconds || 4)) * 1000;
-      const items = this.db.getEnabledItems();
-      const item = this.weightedPick(items);
-      if (!item) return { ok: false, reason: 'no_items' };
+      const latestItems = this.db.getFishingItems();
+      const item = this.pickByChance(latestItems);
+      if (!item) return { ok: false, reason: 'invalid_chance_total', chanceTotal: this.db.getChanceTotal() };
 
       this.broadcast({ type: 'fishing:start', user, durationMs: fishingMs });
       await new Promise((resolve) => setTimeout(resolve, fishingMs));
 
-      const updatedPlayer = this.db.applyCatch(channelId, user, item);
+      const goldAwarded = this.randomGold(item);
+      const updatedPlayer = this.db.applyCatch(channelId, user, item, goldAwarded);
       const payload = {
         type: 'fishing:result',
         user,
-        item,
+        item: {
+          ...item,
+          goldAwarded
+        },
         player: {
           gold: updatedPlayer.gold,
           totalCatches: updatedPlayer.total_catches
@@ -64,8 +73,7 @@ class FishingEngine {
       };
       this.broadcast(payload);
 
-      // Pequeno espaço visual entre uma pescaria e a próxima da fila.
-      await new Promise((resolve) => setTimeout(resolve, 700));
+      await new Promise((resolve) => setTimeout(resolve, 650));
       return { ok: true, ...payload };
     };
 

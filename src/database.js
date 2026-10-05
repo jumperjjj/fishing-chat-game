@@ -2,14 +2,14 @@ const path = require('path');
 const { DatabaseSync } = require('node:sqlite');
 
 const DEFAULT_ITEMS = [
-  { name: 'Sardinha', type: 'Peixe', rarity: 'Comum', weight: 1000, gold: 10 },
-  { name: 'Tilápia', type: 'Peixe', rarity: 'Comum', weight: 800, gold: 20 },
-  { name: 'Bota Velha', type: 'Lixo', rarity: 'Comum', weight: 450, gold: 2 },
-  { name: 'Baiacu', type: 'Peixe', rarity: 'Incomum', weight: 280, gold: 75 },
-  { name: 'Lula', type: 'Peixe', rarity: 'Raro', weight: 90, gold: 200 },
-  { name: 'Peixe-Lua', type: 'Peixe', rarity: 'Épico', weight: 30, gold: 1000 },
-  { name: 'Tubarão Dourado', type: 'Peixe', rarity: 'Lendário', weight: 4, gold: 10000 },
-  { name: 'Leviatã', type: 'Criatura', rarity: 'Mítico', weight: 1, gold: 100000 }
+  { name: 'Sardinha', rarity: 'Comum', chance: 30, goldMin: 10, goldMax: 20 },
+  { name: 'Tilápia', rarity: 'Comum', chance: 25, goldMin: 15, goldMax: 30 },
+  { name: 'Bota Velha', rarity: 'Comum', chance: 20, goldMin: 1, goldMax: 5 },
+  { name: 'Baiacu', rarity: 'Incomum', chance: 12, goldMin: 50, goldMax: 90 },
+  { name: 'Lula', rarity: 'Raro', chance: 7, goldMin: 150, goldMax: 300 },
+  { name: 'Peixe-Lua', rarity: 'Épico', chance: 4, goldMin: 800, goldMax: 1200 },
+  { name: 'Tubarão Dourado', rarity: 'Lendário', chance: 1.5, goldMin: 8000, goldMax: 12000 },
+  { name: 'Leviatã', rarity: 'Mítico', chance: 0.5, goldMin: 50000, goldMax: 100000 }
 ];
 
 class GameDatabase {
@@ -59,6 +59,10 @@ class GameDatabase {
         image_path TEXT NOT NULL DEFAULT '',
         counts_for_collection INTEGER NOT NULL DEFAULT 1,
         enabled INTEGER NOT NULL DEFAULT 1,
+        chance REAL NOT NULL DEFAULT 0,
+        gold_min INTEGER NOT NULL DEFAULT 0,
+        gold_max INTEGER NOT NULL DEFAULT 0,
+        deleted INTEGER NOT NULL DEFAULT 0,
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
       );
 
@@ -83,17 +87,61 @@ class GameDatabase {
         FOREIGN KEY (item_id) REFERENCES items(id)
       );
     `);
+
+    // Migração para bancos criados nas versões 0.1.x.
+    const columns = new Set(this.db.prepare('PRAGMA table_info(items)').all().map((row) => row.name));
+    const addColumn = (name, sql) => {
+      if (!columns.has(name)) this.db.exec(`ALTER TABLE items ADD COLUMN ${sql};`);
+    };
+    addColumn('chance', 'chance REAL NOT NULL DEFAULT 0');
+    addColumn('gold_min', 'gold_min INTEGER NOT NULL DEFAULT 0');
+    addColumn('gold_max', 'gold_max INTEGER NOT NULL DEFAULT 0');
+    addColumn('deleted', 'deleted INTEGER NOT NULL DEFAULT 0');
+
+    const items = this.db.prepare('SELECT id, name, weight, gold, chance, gold_min, gold_max FROM items').all();
+    if (items.length) {
+      const chanceTotal = items.reduce((sum, item) => sum + Number(item.chance || 0), 0);
+      if (chanceTotal <= 0.0001) {
+        const defaultByName = new Map(DEFAULT_ITEMS.map((item) => [item.name, item]));
+        const looksLikeOldSeed = items.length === DEFAULT_ITEMS.length && items.every((item) => defaultByName.has(item.name));
+        const updateChance = this.db.prepare('UPDATE items SET chance = ? WHERE id = ?');
+
+        if (looksLikeOldSeed) {
+          // A v0.1.x usava pesos e gerava números como 37,665%. Ao migrar o catálogo padrão,
+          // trocamos pelos percentuais simples da v0.2.0.
+          const updateDefault = this.db.prepare('UPDATE items SET chance = ?, gold_min = ?, gold_max = ? WHERE id = ?');
+          for (const item of items) {
+            const preset = defaultByName.get(item.name);
+            updateDefault.run(preset.chance, preset.goldMin, preset.goldMax, item.id);
+          }
+        } else {
+          const totalWeight = items.reduce((sum, item) => sum + Math.max(0, Number(item.weight || 0)), 0);
+          for (const item of items) {
+            const chance = totalWeight > 0 ? (Math.max(0, Number(item.weight || 0)) / totalWeight) * 100 : 0;
+            updateChance.run(Math.round(chance * 100) / 100, item.id);
+          }
+        }
+      }
+
+      const updateGoldRange = this.db.prepare(`
+        UPDATE items SET
+          gold_min = CASE WHEN gold_min = 0 THEN gold ELSE gold_min END,
+          gold_max = CASE WHEN gold_max = 0 THEN gold ELSE gold_max END
+        WHERE id = ?
+      `);
+      for (const item of items) updateGoldRange.run(item.id);
+    }
   }
 
   seed() {
     const count = this.db.prepare('SELECT COUNT(*) AS count FROM items').get().count;
     if (count === 0) {
       const insert = this.db.prepare(`
-        INSERT INTO items (name, type, rarity, weight, gold)
-        VALUES (?, ?, ?, ?, ?)
+        INSERT INTO items (name, rarity, chance, gold_min, gold_max, type, weight, gold, enabled, deleted)
+        VALUES (?, ?, ?, ?, ?, 'Peixe', 0, ?, 1, 0)
       `);
       for (const item of DEFAULT_ITEMS) {
-        insert.run(item.name, item.type, item.rarity, item.weight, item.gold);
+        insert.run(item.name, item.rarity, item.chance, item.goldMin, item.goldMax, item.goldMin);
       }
     }
 
@@ -102,6 +150,8 @@ class GameDatabase {
       cooldown_seconds: '120',
       fishing_seconds: '4',
       overlay_enabled: '1',
+      overlay_sound_enabled: '1',
+      chat_result_enabled: '1',
       twitch_client_id: '',
       target_channel_login: '',
       bot_user_id: '',
@@ -134,47 +184,82 @@ class GameDatabase {
   }
 
   listItems() {
-    return this.db.prepare('SELECT * FROM items ORDER BY id ASC').all();
+    return this.db.prepare(`
+      SELECT id, name, rarity, chance, gold_min, gold_max, image_path, counts_for_collection, created_at
+      FROM items
+      WHERE deleted = 0
+      ORDER BY id ASC
+    `).all();
   }
 
-  getEnabledItems() {
-    return this.db.prepare('SELECT * FROM items WHERE enabled = 1 AND weight > 0 ORDER BY id ASC').all();
+  getFishingItems() {
+    return this.db.prepare(`
+      SELECT id, name, rarity, chance, gold_min, gold_max, image_path, counts_for_collection
+      FROM items
+      WHERE deleted = 0 AND chance > 0
+      ORDER BY id ASC
+    `).all();
+  }
+
+  getChanceTotal() {
+    const row = this.db.prepare('SELECT COALESCE(SUM(chance), 0) AS total FROM items WHERE deleted = 0').get();
+    return Number(row.total || 0);
   }
 
   addItem(item) {
+    const chance = this.normalizeChance(item.chance);
+    const { min, max } = this.normalizeGoldRange(item.goldMin, item.goldMax);
     const result = this.db.prepare(`
-      INSERT INTO items (name, type, rarity, weight, gold, image_path, counts_for_collection, enabled)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO items (name, rarity, chance, gold_min, gold_max, type, weight, gold, image_path, counts_for_collection, enabled, deleted)
+      VALUES (?, ?, ?, ?, ?, 'Peixe', 0, ?, ?, 1, 1, 0)
     `).run(
-      item.name,
-      item.type || 'Peixe',
+      String(item.name || '').trim(),
       item.rarity || 'Comum',
-      Math.max(1, Number(item.weight) || 1),
-      Number(item.gold) || 0,
-      item.image_path || '',
-      item.counts_for_collection === false ? 0 : 1,
-      item.enabled === false ? 0 : 1
+      chance,
+      min,
+      max,
+      min,
+      item.image_path || ''
     );
     return Number(result.lastInsertRowid);
   }
 
   updateItem(id, item) {
+    const chance = this.normalizeChance(item.chance);
+    const { min, max } = this.normalizeGoldRange(item.goldMin, item.goldMax);
     this.db.prepare(`
       UPDATE items SET
-        name = ?, type = ?, rarity = ?, weight = ?, gold = ?,
-        image_path = ?, counts_for_collection = ?, enabled = ?
-      WHERE id = ?
+        name = ?, rarity = ?, chance = ?, gold_min = ?, gold_max = ?, gold = ?, image_path = ?
+      WHERE id = ? AND deleted = 0
     `).run(
-      item.name,
-      item.type || 'Peixe',
+      String(item.name || '').trim(),
       item.rarity || 'Comum',
-      Math.max(1, Number(item.weight) || 1),
-      Number(item.gold) || 0,
+      chance,
+      min,
+      max,
+      min,
       item.image_path || '',
-      item.counts_for_collection === false ? 0 : 1,
-      item.enabled === false ? 0 : 1,
       Number(id)
     );
+  }
+
+  deleteItem(id) {
+    this.db.prepare('UPDATE items SET deleted = 1, chance = 0, enabled = 0 WHERE id = ?').run(Number(id));
+  }
+
+  normalizeChance(value) {
+    const chance = Number(value);
+    if (!Number.isFinite(chance) || chance < 0 || chance > 100) {
+      throw new Error('A chance precisa estar entre 0% e 100%.');
+    }
+    return Math.round(chance * 100) / 100;
+  }
+
+  normalizeGoldRange(minValue, maxValue) {
+    const min = Math.max(0, Math.floor(Number(minValue) || 0));
+    const max = Math.max(0, Math.floor(Number(maxValue) || 0));
+    if (max < min) throw new Error('O Ouro máximo não pode ser menor que o Ouro mínimo.');
+    return { min, max };
   }
 
   ensurePlayer(channelId, user) {
@@ -206,19 +291,19 @@ class GameDatabase {
     return now;
   }
 
-  applyCatch(channelId, user, item) {
+  applyCatch(channelId, user, item, goldAwarded) {
     this.ensurePlayer(channelId, user);
 
     this.db.prepare(`
       UPDATE players
       SET gold = gold + ?, total_catches = total_catches + 1, updated_at = CURRENT_TIMESTAMP
       WHERE channel_id = ? AND twitch_user_id = ?
-    `).run(item.gold, channelId, user.id);
+    `).run(goldAwarded, channelId, user.id);
 
     this.db.prepare(`
       INSERT INTO catches (channel_id, twitch_user_id, item_id, gold_awarded)
       VALUES (?, ?, ?, ?)
-    `).run(channelId, user.id, item.id, item.gold);
+    `).run(channelId, user.id, item.id, goldAwarded);
 
     if (item.counts_for_collection) {
       this.db.prepare(`
@@ -244,7 +329,7 @@ class GameDatabase {
 
   getCollection(channelId, userId) {
     return this.db.prepare(`
-      SELECT i.id, i.name, i.type, i.rarity, c.quantity, c.first_caught_at, c.last_caught_at
+      SELECT i.id, i.name, i.rarity, c.quantity, c.first_caught_at, c.last_caught_at
       FROM collection c
       JOIN items i ON i.id = c.item_id
       WHERE c.channel_id = ? AND c.twitch_user_id = ?

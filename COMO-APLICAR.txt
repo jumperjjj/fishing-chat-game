@@ -1,0 +1,13 @@
+PATCH v0.2.0 — Fishing Chat Game
+
+1. Abra seu repositório no GitHub.
+2. Substitua os arquivos deste ZIP mantendo exatamente as mesmas pastas.
+3. Não precisa alterar .github/workflows/build-windows.yml.
+4. Faça Commit changes.
+5. Vá em Actions > Build Windows > Run workflow.
+6. Baixe o Artifact Fishing-Chat-Game-Windows e instale o novo .exe.
+
+IMPORTANTE:
+- O banco antigo é migrado automaticamente; não apague o fishing-game.db.
+- O catálogo padrão antigo (com pesos) é convertido para percentuais simples.
+- Para pescar, a soma das chances dos itens ativos do catálogo precisa ser 100%.
